@@ -1,0 +1,92 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Tareas</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .task { margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        .completed { text-decoration: line-through; color: gray; }
+    </style>
+</head>
+<body>
+    <div x-data="taskManager()" x-init="loadTasks()">
+        <h1>Gestor de Tareas</h1>
+
+        <!-- Formulario para añadir tareas -->
+        <form @submit.prevent="addTask">
+            <input type="text" placeholder="Título" x-model="newTask.title" required>
+            <input type="text" placeholder="Descripción" x-model="newTask.description" required>
+            <button type="submit">Añadir tarea</button>
+        </form>
+
+        <!-- Lista de tareas -->
+        <div>
+            <h2>Tareas:</h2>
+            <template x-for="task in tasks" :key="task.id">
+                <div class="task" :class="{ completed: task.completed }">
+                    <strong x-text="task.title"></strong>: <span x-text="task.description"></span>
+                    <button @click="markCompleted(task.id)" x-show="!task.completed">Marcar como completada</button>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        function taskManager() {
+            return {
+                tasks: [],
+                newTask: { title: "", description: "" },
+
+                // Cargar tareas desde el backend
+                async loadTasks() {
+                    try {
+                        const response = await fetch("/tasks");
+                        if (!response.ok) throw new Error("Error al cargar tareas");
+                        this.tasks = await response.json();
+                    } catch (error) {
+                        console.error("Error:", error);
+                    }
+                },
+
+                // Añadir una nueva tarea
+                async addTask() {
+                    try {
+                        const response = await fetch("/tasks", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(this.newTask),
+                        });
+                        if (!response.ok) throw new Error("Error al añadir tarea");
+                        const newTask = await response.json();
+                        this.tasks.push(newTask);
+                        this.newTask = { title: "", description: "" };
+                    } catch (error) {
+                        console.error("Error:", error);
+                    }
+                },
+
+                // Marcar una tarea como completada
+                async markCompleted(taskId) {
+                    try {
+                        const response = await fetch(`/tasks/${taskId}/complete`, { method: "PUT" });
+                        if (!response.ok) throw new Error("Error al marcar tarea como completada");
+                        const task = this.tasks.find(t => t.id === taskId);
+                        if (task) task.completed = true;
+                    } catch (error) {
+                        console.error("Error:", error);
+                    }
+                },
+            };
+        }
+
+        // Inicializar Alpine.js con taskManager
+        document.addEventListener("alpine:init", () => {
+            Alpine.data("taskManager", taskManager);
+        });
+    </script>
+</body>
+</html>
